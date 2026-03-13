@@ -1,0 +1,23 @@
+manifest_version: 2
+
+version:
+  name: v1_0
+  label: "1.0.0"
+  patch: 0
+
+artifacts:
+  setup_script: setup_script.sql
+  default_streamlit: streamlit/setup_wizard.py
+
+configuration:
+  log_level: INFO
+  trace_level: OFF
+
+references:
+  - township_api_integration:
+      label: "Township Canada API Integration"
+      description: "API Integration for connecting to Township Canada via AWS API Gateway"
+      privileges:
+        - USAGE
+      object_type: API Integration
+      register_callback: config.register_api_integration
