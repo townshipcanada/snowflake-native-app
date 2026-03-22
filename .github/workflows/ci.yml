@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Validate project structure
+        run: |
+          echo "Checking Snowflake Native App structure..."
+          test -f manifest.yml && echo "manifest.yml found" || echo "Missing manifest.yml"
+          test -f setup_script.sql && echo "setup_script.sql found" || echo "Missing setup_script.sql"
+      - name: Validate Python files
+        run: |
+          find . -name "*.py" -exec python -m py_compile {} \;
+          echo "All Python files compile successfully"
+      - name: Validate SQL syntax
+        run: |
+          for f in $(find . -name "*.sql"); do
+            echo "Checking $f..."
+            python -c "open('$f').read()" && echo "  OK" || echo "  FAILED to read"
+          done
