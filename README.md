@@ -1,6 +1,6 @@
 # Township Canada — Snowflake Native App
 
-Snowflake Native App that helps customers set up the `TOWNSHIP_CONVERT` external function for converting Canadian legal land descriptions (DLS/NTS) to GPS coordinates via the Township Canada Batch API.
+Snowflake Native App that helps customers set up the `TOWNSHIP_CANADA_CONVERT` external function for converting Canadian legal land descriptions (DLS/NTS) to GPS coordinates via the Township Canada Batch API.
 
 ## What This App Does
 
@@ -15,12 +15,18 @@ The app provides:
 - A **VALIDATE_LLD** function for checking legal land description formats locally
 - **Reference views** with sample queries, supported formats, and pricing
 
+## Prerequisites
+
+- **Snowflake account** with ACCOUNTADMIN access (required to create API Integrations and External Functions)
+- **AWS account** with permissions to create API Gateway endpoints, Lambda functions, and IAM roles
+- **Township Canada API key** — get a [trial key](https://townshipcanada.com/api/try?ref=snowflake) or a [paid key](https://developer.townshipcanada.com)
+
 ## Architecture
 
 ```mermaid
 graph LR
     subgraph Snowflake
-        EF[TOWNSHIP_CONVERT<br/>External Function]
+        EF[TOWNSHIP_CANADA_CONVERT<br/>External Function]
         AI[API Integration<br/>Trust Policy]
     end
 

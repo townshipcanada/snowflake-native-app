@@ -1,11 +1,18 @@
 """Upload Native App files to Snowflake stage."""
 import getpass
+import sys
 import snowflake.connector
 import os
 
-ACCOUNT = "ZMYQUJY-VSB14218"
-USER = "MEPA1363"
+ACCOUNT = os.environ.get("SNOWFLAKE_ACCOUNT", "")
+USER = os.environ.get("SNOWFLAKE_USER", "")
 ROLE = "ACCOUNTADMIN"
+
+if not ACCOUNT or not USER:
+    print("Error: SNOWFLAKE_ACCOUNT and SNOWFLAKE_USER environment variables must be set.")
+    print("  export SNOWFLAKE_ACCOUNT='your-account-identifier'")
+    print("  export SNOWFLAKE_USER='your-username'")
+    sys.exit(1)
 
 APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -54,6 +61,7 @@ try:
 
 except Exception as e:
     print(f"Error: {e}")
+    sys.exit(1)
 finally:
     cur.close()
     conn.close()

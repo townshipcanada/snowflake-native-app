@@ -24,10 +24,14 @@ $$;
 GRANT USAGE ON FUNCTION CORE.VERSION() TO APPLICATION ROLE APP_PUBLIC;
 
 -- Validate legal land description format
+-- NOTE: Currently validates DLS (Dominion Land Survey) format only.
+-- NTS (National Topographic System) format validation is not yet implemented.
+-- NTS descriptions (e.g., '083E/01') are accepted by the conversion API but
+-- will not pass this validation check. Use this function to pre-filter DLS inputs.
 CREATE OR REPLACE FUNCTION CORE.VALIDATE_LLD(lld VARCHAR)
   RETURNS BOOLEAN
   LANGUAGE SQL
-  COMMENT = 'Validates whether a string matches a recognized DLS legal land description format. Supports separators: dash, space, period, or no separator between components.'
+  COMMENT = 'Validates whether a string matches a recognized DLS legal land description format. Does NOT validate NTS format — NTS descriptions are accepted by the API but will return FALSE from this function. Supports separators: dash, space, period, or no separator between DLS components.'
 AS
 $$
   RLIKE(lld, '^((NW|NE|SW|SE|N|S|E|W)|[0-9]{1,2})[ .\\-]?[0-9]{1,2}[ .\\-]?[0-9]{1,3}[ .\\-]?[0-9]{1,2}[ .\\-]?W[ .\\-]?[4-6]$', 'i')
@@ -39,18 +43,18 @@ GRANT USAGE ON FUNCTION CORE.VALIDATE_LLD(VARCHAR) TO APPLICATION ROLE APP_PUBLI
 CREATE OR REPLACE PROCEDURE CORE.HEALTH_CHECK()
   RETURNS VARCHAR
   LANGUAGE SQL
-  COMMENT = 'Verifies that the TOWNSHIP_CONVERT external function exists and is callable by running a test conversion.'
+  COMMENT = 'Verifies that the TOWNSHIP_CANADA_CONVERT external function exists and is callable by running a test conversion.'
 AS
 $$
 DECLARE
   result VARCHAR;
 BEGIN
   BEGIN
-    SELECT TOWNSHIP_CONVERT('NW-36-42-3-W5') INTO result;
+    SELECT TOWNSHIP_CANADA_CONVERT('NW-36-42-3-W5') INTO result;
     RETURN 'OK: External function is working. Test result: ' || result;
   EXCEPTION
     WHEN OTHER THEN
-      RETURN 'ERROR: External function TOWNSHIP_CONVERT is not available. ' ||
+      RETURN 'ERROR: External function TOWNSHIP_CANADA_CONVERT is not available. ' ||
              'Please complete the setup steps in the Setup Wizard or run the SQL from REFERENCE.SETUP_GUIDE. ' ||
              'Details: ' || SQLERRM;
   END;
@@ -142,7 +146,7 @@ BEGIN
                '-- }\n\n' ||
 
                '-- Step 4: Create the External Function\n' ||
-               'CREATE OR REPLACE EXTERNAL FUNCTION TOWNSHIP_CONVERT(lld VARCHAR)\n' ||
+               'CREATE OR REPLACE EXTERNAL FUNCTION TOWNSHIP_CANADA_CONVERT(lld VARCHAR)\n' ||
                '  RETURNS VARIANT\n' ||
                '  API_INTEGRATION = township_canada_integration\n' ||
                '  MAX_BATCH_ROWS = 100\n' ||
@@ -150,10 +154,10 @@ BEGIN
                '  AS ''' || api_gateway_url || ''';\n\n' ||
 
                '-- Step 5: Grant access\n' ||
-               'GRANT USAGE ON FUNCTION TOWNSHIP_CONVERT(VARCHAR) TO PUBLIC;\n\n' ||
+               'GRANT USAGE ON FUNCTION TOWNSHIP_CANADA_CONVERT(VARCHAR) TO PUBLIC;\n\n' ||
 
                '-- Step 6: Test it!\n' ||
-               'SELECT TOWNSHIP_CONVERT(''NW-36-42-3-W5'') AS result;\n';
+               'SELECT TOWNSHIP_CANADA_CONVERT(''NW-36-42-3-W5'') AS result;\n';
 
   RETURN setup_sql;
 END;
@@ -190,13 +194,27 @@ BEGIN
          '        method="POST"\n' ||
          '    )\n\n' ||
          '    try:\n' ||
-         '        with urllib.request.urlopen(req) as resp:\n' ||
+         '        with urllib.request.urlopen(req, timeout=25) as resp:\n' ||
          '            result = json.loads(resp.read().decode("utf-8"))\n' ||
          '    except urllib.error.HTTPError as e:\n' ||
          '        return {\n' ||
          '            "statusCode": e.code,\n' ||
          '            "body": json.dumps({\n' ||
          '                "error": f"Township Canada API returned {e.code}: {e.reason}"\n' ||
+         '            })\n' ||
+         '        }\n' ||
+         '    except urllib.error.URLError as e:\n' ||
+         '        return {\n' ||
+         '            "statusCode": 502,\n' ||
+         '            "body": json.dumps({\n' ||
+         '                "error": f"Failed to connect to Township Canada API: {e.reason}"\n' ||
+         '            })\n' ||
+         '        }\n' ||
+         '    except Exception as e:\n' ||
+         '        return {\n' ||
+         '            "statusCode": 500,\n' ||
+         '            "body": json.dumps({\n' ||
+         '                "error": f"Unexpected error calling Township Canada API: {str(e)}"\n' ||
          '            })\n' ||
          '        }\n\n' ||
          '    coords_map = {}\n' ||
@@ -327,7 +345,7 @@ FROM (VALUES
 
   (6, 'Test the Function',
    'Run a test query to verify the external function is working correctly.',
-   'SELECT TOWNSHIP_CONVERT(''NW-36-42-3-W5'') AS result;'),
+   'SELECT TOWNSHIP_CANADA_CONVERT(''NW-36-42-3-W5'') AS result;'),
 
   (7, 'Validate Your Data',
    'Use the built-in VALIDATE_LLD function to check your legal land descriptions before sending them to the API.',
@@ -346,11 +364,11 @@ SELECT column1 AS name,
 FROM (VALUES
   ('Single Conversion',
    'Convert a single legal land description to GPS coordinates.',
-   'SELECT TOWNSHIP_CONVERT(''NW-36-42-3-W5'') AS result;'),
+   'SELECT TOWNSHIP_CANADA_CONVERT(''NW-36-42-3-W5'') AS result;'),
 
   ('Batch Conversion',
    'Convert multiple legal land descriptions from a table column.',
-   'SELECT lld_column, TOWNSHIP_CONVERT(lld_column) AS coordinates FROM your_table;'),
+   'SELECT lld_column, TOWNSHIP_CANADA_CONVERT(lld_column) AS coordinates FROM your_table;'),
 
   ('Validate Before Convert',
    'Validate legal land descriptions before calling the API to avoid errors.',
@@ -358,15 +376,15 @@ FROM (VALUES
 
   ('Filter Valid Records',
    'Convert only valid legal land descriptions from a table.',
-   'SELECT lld_column, TOWNSHIP_CONVERT(lld_column) AS coordinates FROM your_table WHERE CORE.VALIDATE_LLD(lld_column);'),
+   'SELECT lld_column, TOWNSHIP_CANADA_CONVERT(lld_column) AS coordinates FROM your_table WHERE CORE.VALIDATE_LLD(lld_column);'),
 
   ('Extract Latitude/Longitude',
    'Extract latitude and longitude as separate float columns from the conversion result.',
-   'SELECT lld_column, TOWNSHIP_CONVERT(lld_column):latitude::FLOAT AS latitude, TOWNSHIP_CONVERT(lld_column):longitude::FLOAT AS longitude FROM your_table;'),
+   'SELECT lld_column, TOWNSHIP_CANADA_CONVERT(lld_column):latitude::FLOAT AS latitude, TOWNSHIP_CANADA_CONVERT(lld_column):longitude::FLOAT AS longitude FROM your_table;'),
 
   ('Convert with Metadata',
    'Join conversion results with your existing data for enrichment.',
-   'SELECT t.well_id, t.lld, TOWNSHIP_CONVERT(t.lld) AS geo_result FROM wells_table t WHERE CORE.VALIDATE_LLD(t.lld) LIMIT 100;'),
+   'SELECT t.well_id, t.lld, TOWNSHIP_CANADA_CONVERT(t.lld) AS geo_result FROM wells_table t WHERE CORE.VALIDATE_LLD(t.lld) LIMIT 100;'),
 
   ('Health Check',
    'Verify the external function is properly configured and working.',

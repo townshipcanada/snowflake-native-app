@@ -23,7 +23,7 @@ jobs:
         run: |
           find . -name "*.py" -exec python -m py_compile {} \;
           echo "All Python files compile successfully"
-      - name: Validate SQL syntax
+      - name: Check SQL files are readable
         run: |
           for f in $(find . -name "*.sql"); do
             echo "Checking $f..."

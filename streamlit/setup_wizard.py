@@ -1,7 +1,7 @@
 """
 Township Canada — Snowflake Native App Setup Wizard
 
-Interactive setup wizard for configuring the TOWNSHIP_CONVERT external function
+Interactive setup wizard for configuring the TOWNSHIP_CANADA_CONVERT external function
 that converts Canadian legal land descriptions (DLS/NTS) to GPS coordinates.
 """
 
@@ -27,7 +27,7 @@ tab_welcome, tab_aws, tab_snowflake, tab_test, tab_reference = st.tabs([
 with tab_welcome:
     st.header("Welcome to Township Canada")
     st.write(
-        "This app helps you set up the **TOWNSHIP_CONVERT** external function "
+        "This app helps you set up the **TOWNSHIP_CANADA_CONVERT** external function "
         "in your Snowflake account. Once configured, you can convert Canadian "
         "legal land descriptions (DLS and NTS formats) to GPS coordinates "
         "directly in SQL."
@@ -58,7 +58,7 @@ with tab_welcome:
                 color="#29B5E8"
                 fontcolor="#29B5E8"
                 fontname="Helvetica"
-                EF [label="TOWNSHIP_CONVERT\\nExternal Function" fillcolor="#E8F4FD"]
+                EF [label="TOWNSHIP_CANADA_CONVERT\\nExternal Function" fillcolor="#E8F4FD"]
                 AI [label="API Integration\\nTrust Policy" fillcolor="#E8F4FD"]
             }
 
@@ -133,7 +133,8 @@ with tab_aws:
     )
 
     if st.button("Show Lambda Code", key="btn_lambda"):
-        result = session.sql("CALL CONFIG.GET_LAMBDA_CODE()").collect()
+        with st.spinner("Loading Lambda code..."):
+            result = session.sql("CALL CONFIG.GET_LAMBDA_CODE()").collect()
         st.code(result[0][0], language="python")
 
     # API Gateway
@@ -182,10 +183,11 @@ with tab_aws:
 
         if st.button("Generate Policy", key="btn_iam_policy"):
             if aws_account_id and api_id:
-                result = session.sql(
-                    "CALL CONFIG.GET_IAM_POLICY(?, ?, ?, ?)",
-                    params=[aws_account_id, api_id, iam_region, iam_stage]
-                ).collect()
+                with st.spinner("Generating IAM policy..."):
+                    result = session.sql(
+                        "CALL CONFIG.GET_IAM_POLICY(?, ?, ?, ?)",
+                        params=[aws_account_id, api_id, iam_region, iam_stage]
+                    ).collect()
                 st.code(result[0][0], language="json")
             else:
                 st.error("Please provide both AWS Account ID and API Gateway ID.")
@@ -226,10 +228,11 @@ with tab_snowflake:
 
     if st.button("Generate Setup SQL", type="primary", key="btn_generate_sql"):
         if api_gateway_url and iam_role_arn:
-            result = session.sql(
-                "CALL CONFIG.CONFIGURE(?, ?, ?)",
-                params=[api_gateway_url, iam_role_arn, aws_region]
-            ).collect()
+            with st.spinner("Generating setup SQL..."):
+                result = session.sql(
+                    "CALL CONFIG.CONFIGURE(?, ?, ?)",
+                    params=[api_gateway_url, iam_role_arn, aws_region]
+                ).collect()
             st.success("SQL generated. Copy the script below and run it as ACCOUNTADMIN.")
             st.code(result[0][0], language="sql")
         else:
@@ -263,10 +266,11 @@ with tab_snowflake:
 
         if st.button("Generate Trust Policy", key="btn_trust_policy"):
             if sf_iam_user_arn and sf_external_id:
-                result = session.sql(
-                    "CALL CONFIG.GENERATE_TRUST_POLICY(?, ?)",
-                    params=[sf_iam_user_arn, sf_external_id]
-                ).collect()
+                with st.spinner("Generating trust policy..."):
+                    result = session.sql(
+                        "CALL CONFIG.GENERATE_TRUST_POLICY(?, ?)",
+                        params=[sf_iam_user_arn, sf_external_id]
+                    ).collect()
                 st.code(result[0][0], language="json")
                 st.info(
                     "Copy this JSON and paste it as the Trust Policy for your "
@@ -292,10 +296,11 @@ with tab_test:
     )
 
     if st.button("Validate", key="btn_validate"):
-        result = session.sql(
-            "SELECT CORE.VALIDATE_LLD(?)",
-            params=[validate_input]
-        ).collect()
+        with st.spinner("Validating format..."):
+            result = session.sql(
+                "SELECT CORE.VALIDATE_LLD(?)",
+                params=[validate_input]
+            ).collect()
         is_valid = result[0][0]
         if is_valid:
             st.success(f"'{validate_input}' is a valid DLS format.")
@@ -309,7 +314,7 @@ with tab_test:
 
     st.subheader("Test External Function")
     st.write(
-        "After completing the setup, test the TOWNSHIP_CONVERT external function. "
+        "After completing the setup, test the TOWNSHIP_CANADA_CONVERT external function. "
         "This calls the Township Canada API through your AWS proxy."
     )
 
@@ -321,10 +326,11 @@ with tab_test:
 
     if st.button("Convert", type="primary", key="btn_convert"):
         try:
-            result = session.sql(
-                "SELECT TOWNSHIP_CONVERT(?) AS result",
-                params=[test_input]
-            ).collect()
+            with st.spinner("Converting legal land description..."):
+                result = session.sql(
+                    "SELECT TOWNSHIP_CANADA_CONVERT(?) AS result",
+                    params=[test_input]
+                ).collect()
             st.success("Conversion successful!")
             st.json(result[0][0])
         except Exception as e:
@@ -340,7 +346,8 @@ with tab_test:
     st.subheader("Health Check")
     if st.button("Run Health Check", key="btn_health"):
         try:
-            result = session.sql("CALL CORE.HEALTH_CHECK()").collect()
+            with st.spinner("Running health check..."):
+                result = session.sql("CALL CORE.HEALTH_CHECK()").collect()
             status = result[0][0]
             if status.startswith("OK"):
                 st.success(status)
