@@ -1,0 +1,14 @@
+name: township_canada_dls
+comment: "DLS (Dominion Land Survey) grid boundaries for Western Canada — Alberta, Saskatchewan, and Manitoba. Published by Township Canada."
+
+schema: dls
+
+tables:
+  - name: dls_townships
+    comment: "Township boundaries (~6mi × 6mi grids). Columns: township, range, meridian, lld, geometry (WKT), centroid_lat, centroid_lon, area_ha."
+
+  - name: dls_sections
+    comment: "Section boundaries (~1mi × 1mi grids). Columns: section, township, range, meridian, lld, geometry (WKT), centroid_lat, centroid_lon, area_ha."
+
+  - name: dls_quarter_sections
+    comment: "Quarter-section boundaries. Columns: quarter, section, township, range, meridian, lld, geometry (WKT), centroid_lat, centroid_lon, area_ha."

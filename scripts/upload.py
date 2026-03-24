@@ -52,6 +52,14 @@ try:
     )
     print(f"  -> {cur.fetchone()}")
 
+    print("Uploading marketplace/readme.md...")
+    cur.execute(
+        f"PUT 'file://{APP_DIR}/marketplace/readme.md' "
+        "@township_canada_pkg.stage_content.app_stage/ "
+        "OVERWRITE=TRUE AUTO_COMPRESS=FALSE"
+    )
+    print(f"  -> {cur.fetchone()}")
+
     print("\nVerifying uploads...")
     cur.execute("LIST @township_canada_pkg.stage_content.app_stage")
     for row in cur.fetchall():

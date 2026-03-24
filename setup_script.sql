@@ -448,3 +448,34 @@ FROM (VALUES
 );
 
 GRANT SELECT ON VIEW REFERENCE.PRICING TO APPLICATION ROLE APP_PUBLIC;
+
+-- CARTO / Geospatial enrichment examples
+CREATE OR REPLACE VIEW REFERENCE.CARTO_EXAMPLES
+  COMMENT = 'Example queries for using Township Canada with CARTO Analytics Toolbox and geospatial enrichment workflows in Snowflake.'
+AS
+SELECT column1 AS name,
+       column2 AS description,
+       column3 AS sql_query
+FROM (VALUES
+  ('CARTO — Enrich Wells Table',
+   'Convert a DLS column to coordinates and add geometry for use in CARTO Builder or any Snowflake geospatial tool.',
+   'SELECT\n  well_id,\n  lld,\n  TOWNSHIP_CANADA_CONVERT(lld):latitude::FLOAT AS lat,\n  TOWNSHIP_CANADA_CONVERT(lld):longitude::FLOAT AS lon,\n  ST_MAKEPOINT(\n    TOWNSHIP_CANADA_CONVERT(lld):longitude::FLOAT,\n    TOWNSHIP_CANADA_CONVERT(lld):latitude::FLOAT\n  ) AS geom\nFROM wells_table\nWHERE CORE.VALIDATE_LLD(lld);'),
+
+  ('CARTO — Create Enriched View',
+   'Create a persistent view that enriches DLS data with coordinates, ready for CARTO visualization or spatial joins.',
+   'CREATE OR REPLACE VIEW enriched_wells AS\nSELECT\n  w.*,\n  TOWNSHIP_CANADA_CONVERT(w.lld):latitude::FLOAT AS latitude,\n  TOWNSHIP_CANADA_CONVERT(w.lld):longitude::FLOAT AS longitude,\n  ST_MAKEPOINT(\n    TOWNSHIP_CANADA_CONVERT(w.lld):longitude::FLOAT,\n    TOWNSHIP_CANADA_CONVERT(w.lld):latitude::FLOAT\n  ) AS geom\nFROM wells_table w\nWHERE CORE.VALIDATE_LLD(w.lld);'),
+
+  ('CARTO — Spatial Join with H3',
+   'Use CARTO Analytics Toolbox H3 functions to aggregate DLS-enriched points into hexagonal bins.',
+   'SELECT\n  CARTO.CARTO.H3_FROMGEOGPOINT(\n    ST_MAKEPOINT(\n      TOWNSHIP_CANADA_CONVERT(lld):longitude::FLOAT,\n      TOWNSHIP_CANADA_CONVERT(lld):latitude::FLOAT\n    ), 5\n  ) AS h3_index,\n  COUNT(*) AS well_count\nFROM wells_table\nWHERE CORE.VALIDATE_LLD(lld)\nGROUP BY 1;'),
+
+  ('CARTO — Proximity Analysis',
+   'Find all wells within a radius of a point of interest using enriched coordinates.',
+   'WITH enriched AS (\n  SELECT\n    well_id, lld,\n    ST_MAKEPOINT(\n      TOWNSHIP_CANADA_CONVERT(lld):longitude::FLOAT,\n      TOWNSHIP_CANADA_CONVERT(lld):latitude::FLOAT\n    ) AS geom\n  FROM wells_table\n  WHERE CORE.VALIDATE_LLD(lld)\n)\nSELECT well_id, lld,\n  ST_DISTANCE(geom, ST_MAKEPOINT(-114.0719, 51.0447)) / 1000 AS distance_km\nFROM enriched\nWHERE ST_DISTANCE(geom, ST_MAKEPOINT(-114.0719, 51.0447)) < 50000\nORDER BY distance_km;'),
+
+  ('Enrichment — Materialize Coordinates',
+   'Batch-convert an entire table and store results to avoid repeated API calls.',
+   'CREATE TABLE well_coordinates AS\nSELECT\n  well_id,\n  lld,\n  TOWNSHIP_CANADA_CONVERT(lld):latitude::FLOAT AS latitude,\n  TOWNSHIP_CANADA_CONVERT(lld):longitude::FLOAT AS longitude\nFROM wells_table\nWHERE CORE.VALIDATE_LLD(lld);')
+);
+
+GRANT SELECT ON VIEW REFERENCE.CARTO_EXAMPLES TO APPLICATION ROLE APP_PUBLIC;

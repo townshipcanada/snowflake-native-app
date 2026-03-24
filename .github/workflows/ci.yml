@@ -19,6 +19,7 @@ jobs:
           echo "Checking Snowflake Native App structure..."
           test -f manifest.yml && echo "manifest.yml found" || echo "Missing manifest.yml"
           test -f setup_script.sql && echo "setup_script.sql found" || echo "Missing setup_script.sql"
+          test -f marketplace/readme.md && echo "marketplace/readme.md found" || echo "Missing marketplace/readme.md"
       - name: Validate Python files
         run: |
           find . -name "*.py" -exec python -m py_compile {} \;

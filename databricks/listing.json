@@ -1,0 +1,55 @@
+{
+  "name": "Township Canada — DLS Grid Boundaries",
+  "subtitle": "Dominion Land Survey boundaries for Western Canada (AB, SK, MB)",
+  "description": "Complete set of DLS (Dominion Land Survey) grid boundaries for Alberta, Saskatchewan, and Manitoba. Includes township, section, and quarter-section polygons with legal land descriptions (LLD), centroid coordinates, and area calculations. Use for spatial joins to enrich well, lease, crop, and property data with standardized legal land references.\n\nPublished by Township Canada — trusted by Western Canadian professionals since 2017.",
+  "category": "Geospatial",
+  "industry": ["Energy", "Agriculture", "Real Estate", "Government"],
+  "tags": [
+    "DLS",
+    "legal land description",
+    "survey grid",
+    "Alberta",
+    "Saskatchewan",
+    "Manitoba",
+    "Western Canada",
+    "oil and gas",
+    "geospatial",
+    "boundaries"
+  ],
+  "provider": {
+    "name": "Township Canada",
+    "company": "Maps & Apps Inc.",
+    "website": "https://townshipcanada.com",
+    "support_email": "support@townshipcanada.com",
+    "sales_email": "sales@townshipcanada.com"
+  },
+  "pricing": {
+    "type": "paid",
+    "plans": [
+      {
+        "name": "Standard",
+        "price_monthly_usd": 100,
+        "description": "Full access to DLS township, section, and quarter-section boundaries. Updated quarterly."
+      },
+      {
+        "name": "Enterprise",
+        "price_monthly_usd": 500,
+        "description": "Full access with priority support, SLA, and custom delivery options."
+      }
+    ]
+  },
+  "sample_queries": [
+    {
+      "name": "List townships",
+      "query": "SELECT lld, township, range, meridian, centroid_lat, centroid_lon FROM township_canada.dls.dls_townships LIMIT 10;"
+    },
+    {
+      "name": "Spatial join — find township for a coordinate",
+      "query": "SELECT t.lld FROM township_canada.dls.dls_townships t WHERE ST_Contains(ST_GeomFromWKT(t.geometry), ST_Point(-114.0719, 51.0447));"
+    },
+    {
+      "name": "Count sections by meridian",
+      "query": "SELECT meridian, COUNT(*) AS section_count FROM township_canada.dls.dls_sections GROUP BY meridian ORDER BY meridian;"
+    }
+  ]
+}

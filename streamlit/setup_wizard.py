@@ -13,11 +13,12 @@ session = get_active_session()
 st.title("Township Canada")
 st.caption("Legal Land Description to GPS Conversion")
 
-tab_welcome, tab_aws, tab_snowflake, tab_test, tab_reference = st.tabs([
+tab_welcome, tab_aws, tab_snowflake, tab_test, tab_carto, tab_reference = st.tabs([
     "Welcome",
     "AWS Setup",
     "Snowflake Setup",
     "Test",
+    "CARTO & Enrichment",
     "Reference",
 ])
 
@@ -357,8 +358,71 @@ with tab_test:
             st.error(f"Health check failed: {str(e)}")
 
 
+
+
 # =============================================================================
-# Tab 5: Reference
+# Tab 5: CARTO & Enrichment
+# =============================================================================
+with tab_carto:
+    st.header("CARTO & Geospatial Enrichment")
+    st.write(
+        "Use Township Canada with CARTO Analytics Toolbox, Snowflake geospatial "
+        "functions, and other spatial tools. These examples show how to enrich "
+        "your DLS-referenced data with coordinates and geometry."
+    )
+
+    st.subheader("How It Works")
+    st.markdown(
+        """
+        1. **Convert** DLS/NTS references to latitude/longitude using `TOWNSHIP_CANADA_CONVERT`
+        2. **Create geometry** with Snowflake's `ST_MAKEPOINT` for spatial operations
+        3. **Analyze** using CARTO Analytics Toolbox, H3 binning, spatial joins, or any geospatial tool
+        """
+    )
+
+    st.subheader("Example Queries")
+    try:
+        carto_queries = session.sql("SELECT * FROM REFERENCE.CARTO_EXAMPLES").collect()
+        for row in carto_queries:
+            with st.expander(f"{row['NAME']} — {row['DESCRIPTION']}"):
+                st.code(row["SQL_QUERY"], language="sql")
+    except Exception:
+        st.info(
+            "CARTO example queries will be available after the app is installed. "
+            "See the Reference tab for general sample queries."
+        )
+
+    st.divider()
+
+    st.subheader("CARTO Builder Integration")
+    st.markdown(
+        """
+        To visualize your enriched data in CARTO Builder:
+
+        1. Create an enriched view with geometry (see "Create Enriched View" example above)
+        2. Connect your Snowflake account in CARTO
+        3. Add the enriched view as a data source in CARTO Builder
+        4. The `geom` column will be automatically recognized for mapping
+
+        CARTO's Analytics Toolbox functions (H3, spatial indexing, clustering) work
+        directly on the `ST_MAKEPOINT` geometry created from Township Canada coordinates.
+        """
+    )
+
+    st.subheader("Databricks / Delta Sharing")
+    st.markdown(
+        """
+        Township Canada also publishes DLS grid boundaries as a **Delta Sharing dataset**
+        for Databricks users. This includes township, section, and quarter-section polygons
+        for spatial joins without API calls.
+
+        Contact [sales@townshipcanada.com](mailto:sales@townshipcanada.com) for access
+        to the Databricks Marketplace listing.
+        """
+    )
+
+# =============================================================================
+# Tab 6: Reference
 # =============================================================================
 with tab_reference:
     st.header("Reference")
