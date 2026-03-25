@@ -7,25 +7,35 @@ on:
     branches: [main]
 
 jobs:
-  validate:
+  validate-structure:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+      - uses: actions/checkout@v6
       - name: Validate project structure
         run: |
           echo "Checking Snowflake Native App structure..."
-          test -f manifest.yml && echo "manifest.yml found" || echo "Missing manifest.yml"
-          test -f setup_script.sql && echo "setup_script.sql found" || echo "Missing setup_script.sql"
+          test -f manifest.yml && echo "manifest.yml found" || (echo "Missing manifest.yml" && exit 1)
+          test -f setup_script.sql && echo "setup_script.sql found" || (echo "Missing setup_script.sql" && exit 1)
+
+  validate-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
       - name: Validate Python files
         run: |
           find . -name "*.py" -exec python -m py_compile {} \;
           echo "All Python files compile successfully"
+
+  validate-sql:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
       - name: Check SQL files are readable
         run: |
           for f in $(find . -name "*.sql"); do
             echo "Checking $f..."
-            python -c "open('$f').read()" && echo "  OK" || echo "  FAILED to read"
+            cat "$f" > /dev/null && echo "  OK" || (echo "  FAILED to read" && exit 1)
           done
