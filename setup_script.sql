@@ -222,9 +222,7 @@ BEGIN
          'import urllib.request\n' ||
          'import urllib.error\n\n' ||
          'TOWNSHIP_API_KEY = os.environ["TOWNSHIP_API_KEY"]\n' ||
-         'TRIAL_API_URL = "https://townshipcanada.com/api/integrations/trial/batch/legal-location"\n' ||
-         'PAID_API_URL = "https://developer.townshipcanada.com/batch/legal-location"\n' ||
-         'TOWNSHIP_API_URL = TRIAL_API_URL if TOWNSHIP_API_KEY.startswith("tc_trial_") else PAID_API_URL\n\n' ||
+         'TOWNSHIP_API_URL = "https://townshipcanada.com/api/batch/legal-location"\n\n' ||
          'def lambda_handler(event, context):\n' ||
          '    rows = event.get("data", [])\n' ||
          '    llds = [row[1] for row in rows]\n\n' ||
@@ -368,7 +366,7 @@ SELECT column1 AS step_number,
        column4 AS sql_command
 FROM (VALUES
   (1, 'Deploy Lambda Function',
-   'Create an AWS Lambda function that proxies requests from Snowflake to the Township Canada Batch API. Use Python 3.12 runtime. Set the TOWNSHIP_API_KEY environment variable with your API key (trial or paid). Get a trial key at townshipcanada.com/api/try?ref=snowflake or a paid key at developer.townshipcanada.com.',
+   'Create an AWS Lambda function that proxies requests from Snowflake to the Township Canada Batch API. Use Python 3.12 runtime. Set the TOWNSHIP_API_KEY environment variable with your API key from developer.townshipcanada.com.',
    'CALL CONFIG.GET_LAMBDA_CODE();'),
 
   (2, 'Create API Gateway',

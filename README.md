@@ -50,7 +50,7 @@ For live batch conversions of any legal land description (not just the sample da
 ### Prerequisites for Live API
 
 - **AWS account** with permissions to create API Gateway endpoints, Lambda functions, and IAM roles
-- **Township Canada API key** — get a [trial key](https://townshipcanada.com/api/try?ref=snowflake) or a [paid key](https://developer.townshipcanada.com)
+- **Township Canada API key** — get one at [developer.townshipcanada.com](https://developer.townshipcanada.com)
 
 ### Architecture
 
