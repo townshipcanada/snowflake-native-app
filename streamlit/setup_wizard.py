@@ -227,8 +227,8 @@ with tab_aws:
         - **Runtime:** Python 3.12
         - **Handler:** `lambda_function.lambda_handler`
         - **Timeout:** 30 seconds
-        - **Environment variable:** `TOWNSHIP_API_KEY` = your API key from
-          [developer.townshipcanada.com](https://developer.townshipcanada.com)
+        - **Environment variable:** `TOWNSHIP_API_KEY` = your API key.
+          For technical details see [townshipcanada.com/api](https://townshipcanada.com/api)
         """
     )
 
