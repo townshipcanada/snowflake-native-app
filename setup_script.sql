@@ -260,14 +260,13 @@ BEGIN
          '            })\n' ||
          '        }\n\n' ||
          '    coords_map = {}\n' ||
-         '    for fc in result:\n' ||
-         '        for feature in fc.get("features", []):\n' ||
-         '            props = feature.get("properties", {})\n' ||
-         '            geom = feature.get("geometry", {})\n' ||
-         '            if props.get("shape") == "centroid" and geom.get("type") == "Point":\n' ||
-         '                lld = props.get("legal_location", "")\n' ||
-         '                lon, lat = geom["coordinates"]\n' ||
-         '                coords_map[lld] = {"latitude": lat, "longitude": lon}\n\n' ||
+         '    for feature in result.get("features", []):\n' ||
+         '        props = feature.get("properties", {})\n' ||
+         '        geom = feature.get("geometry", {})\n' ||
+         '        if props.get("shape") == "centroid" and geom.get("type") == "Point":\n' ||
+         '            lld = props.get("legal_location", "")\n' ||
+         '            lon, lat = geom["coordinates"]\n' ||
+         '            coords_map[lld] = {"latitude": lat, "longitude": lon}\n\n' ||
          '    output_rows = []\n' ||
          '    for row in rows:\n' ||
          '        row_number = row[0]\n' ||
