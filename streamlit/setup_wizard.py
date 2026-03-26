@@ -13,8 +13,9 @@ session = get_active_session()
 st.title("Township Canada")
 st.caption("Legal Land Description to GPS Conversion")
 
-tab_welcome, tab_aws, tab_snowflake, tab_test, tab_reference = st.tabs([
+tab_welcome, tab_try, tab_aws, tab_snowflake, tab_test, tab_reference = st.tabs([
     "Welcome",
+    "Try Now",
     "AWS Setup",
     "Snowflake Setup",
     "Test",
@@ -27,23 +28,31 @@ tab_welcome, tab_aws, tab_snowflake, tab_test, tab_reference = st.tabs([
 with tab_welcome:
     st.header("Welcome to Township Canada")
     st.write(
-        "This app helps you set up the **TOWNSHIP_CANADA_CONVERT** external function "
-        "in your Snowflake account. Once configured, you can convert Canadian "
-        "legal land descriptions (DLS and NTS formats) to GPS coordinates "
-        "directly in SQL."
+        "This app converts Canadian legal land descriptions (DLS and NTS formats) "
+        "to GPS coordinates. It includes built-in tools you can use right away, "
+        "plus an optional external API integration for live batch conversions."
     )
 
-    st.subheader("What You Get")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Input", "Legal Land Description")
-        st.code("NW-36-42-3-W5", language=None)
-    with col2:
-        st.metric("Output", "GeoJSON Feature")
-        st.code('{"type": "Feature", ...}', language=None)
-    with col3:
-        st.metric("Batch Size", "Up to 100 rows")
-        st.code("Per API call", language=None)
+    st.subheader("Use Right Away — No Setup Required")
+    st.markdown(
+        """
+        - **Validate** legal land descriptions against recognized DLS formats
+        - **Parse** land descriptions into structured components (quarter, section, township, range, meridian)
+        - **Standardize** any supported input format to standard dash-separated format
+        - **Look up** GPS coordinates from 30 pre-computed sample conversions
+        - **Browse** reference data for supported formats and sample queries
+        """
+    )
+
+    st.subheader("Optional: Live API Conversion")
+    st.markdown(
+        """
+        For live batch conversions of any legal land description, you can optionally
+        configure the **TOWNSHIP_CANADA_CONVERT** external function. This connects
+        to the Township Canada API through AWS for real-time GPS coordinate lookups.
+        See the **AWS Setup** and **Snowflake Setup** tabs for configuration steps.
+        """
+    )
 
     st.subheader("Architecture")
     st.graphviz_chart("""
@@ -53,23 +62,23 @@ with tab_welcome:
             edge [fontname="Helvetica", fontsize=9]
 
             subgraph cluster_snowflake {
-                label="Snowflake"
+                label="Snowflake (works immediately)"
                 style="dashed"
                 color="#29B5E8"
                 fontcolor="#29B5E8"
                 fontname="Helvetica"
-                EF [label="TOWNSHIP_CANADA_CONVERT\\nExternal Function" fillcolor="#E8F4FD"]
-                AI [label="API Integration\\nTrust Policy" fillcolor="#E8F4FD"]
+                VL [label="VALIDATE_LLD\\nPARSE_LLD\\nSTANDARDIZE_LLD" fillcolor="#E8F4FD"]
+                DM [label="DEMO.LOOKUP\\nSample Dataset" fillcolor="#E8F4FD"]
             }
 
-            subgraph cluster_aws {
-                label="AWS"
+            subgraph cluster_optional {
+                label="Optional — Live API"
                 style="dashed"
                 color="#FF9900"
                 fontcolor="#FF9900"
                 fontname="Helvetica"
-                AG [label="API Gateway\\n+ Lambda Proxy" fillcolor="#FFF3E0"]
-                IAM [label="IAM Role\\nTrust Policy" fillcolor="#FFF3E0"]
+                EF [label="TOWNSHIP_CANADA_CONVERT\\nExternal Function" fillcolor="#FFF3E0"]
+                AG [label="AWS API Gateway\\n+ Lambda Proxy" fillcolor="#FFF3E0"]
             }
 
             subgraph cluster_tc {
@@ -85,36 +94,128 @@ with tab_welcome:
             AG -> API [label="POST"]
             API -> AG [label="GeoJSON" style=dashed]
             AG -> EF [label="coordinates" style=dashed]
-            AI -> IAM [label="assume role"]
         }
     """)
-
-    st.subheader("Setup Steps")
-    st.markdown(
-        """
-        1. **AWS Setup** — Deploy a Lambda function and API Gateway endpoint
-        2. **Snowflake Setup** — Create the API Integration and External Function
-        3. **Test** — Verify everything works with a sample query
-        """
-    )
-
-    st.info(
-        "The full setup guide is available at "
-        "[townshipcanada.com/guides/snowflake-external-function]"
-        "(https://townshipcanada.com/guides/snowflake-external-function)"
-    )
 
     version_result = session.sql("SELECT CORE.VERSION()").collect()
     st.caption(f"App version: {version_result[0][0]}")
 
 
 # =============================================================================
-# Tab 2: AWS Setup
+# Tab 2: Try Now — Immediate utility, no setup required
+# =============================================================================
+with tab_try:
+    st.header("Try Now")
+    st.write("These tools work immediately — no API key or external setup required.")
+
+    st.subheader("Validate a Legal Land Description")
+    validate_input = st.text_input(
+        "Enter a legal land description",
+        value="NW-36-42-3-W5",
+        key="try_validate_lld",
+    )
+
+    if st.button("Validate & Parse", key="btn_try_validate", type="primary"):
+        col1, col2 = st.columns(2)
+        with col1:
+            with st.spinner("Validating..."):
+                result = session.sql(
+                    "SELECT CORE.VALIDATE_LLD(?)",
+                    params=[validate_input]
+                ).collect()
+            is_valid = result[0][0]
+            if is_valid:
+                st.success(f"Valid DLS format")
+            else:
+                st.error(f"Not a recognized DLS format")
+
+        with col2:
+            with st.spinner("Parsing..."):
+                result = session.sql(
+                    "SELECT CORE.PARSE_LLD(?)",
+                    params=[validate_input]
+                ).collect()
+            parsed = result[0][0]
+            if parsed:
+                st.json(parsed)
+            else:
+                st.info("Cannot parse — not a valid DLS format.")
+
+    st.divider()
+
+    st.subheader("Standardize Format")
+    st.write("Convert any supported format to standard dash-separated notation.")
+
+    std_input = st.text_input(
+        "Enter a legal land description in any format",
+        value="NE 7 102 19 W4",
+        key="try_standardize_lld",
+    )
+
+    if st.button("Standardize", key="btn_try_standardize"):
+        with st.spinner("Standardizing..."):
+            result = session.sql(
+                "SELECT CORE.STANDARDIZE_LLD(?)",
+                params=[std_input]
+            ).collect()
+        standardized = result[0][0]
+        if standardized:
+            st.success(f"Standardized: **{standardized}**")
+        else:
+            st.error("Input does not match a recognized DLS format.")
+
+    st.divider()
+
+    st.subheader("Demo GPS Lookup")
+    st.write(
+        "Look up GPS coordinates from the built-in sample dataset of 100 "
+        "pre-computed conversions."
+    )
+
+    demo_input = st.text_input(
+        "Enter a legal land description",
+        value="NW-36-42-3-W5",
+        key="try_demo_lld",
+    )
+
+    if st.button("Look Up Coordinates", key="btn_try_demo", type="primary"):
+        with st.spinner("Looking up..."):
+            result = session.sql(
+                "SELECT DEMO.LOOKUP(?)",
+                params=[demo_input]
+            ).collect()
+        lookup = result[0][0]
+        if lookup:
+            st.success("Found in sample dataset!")
+            st.json(lookup)
+        else:
+            st.warning(
+                "This description is not in the sample dataset. "
+                "Configure the external API (AWS Setup tab) for live conversions "
+                "of any legal land description."
+            )
+
+    st.divider()
+
+    st.subheader("Browse Sample Dataset")
+    if st.button("Load Sample Data", key="btn_try_browse"):
+        with st.spinner("Loading..."):
+            df = session.sql("SELECT * FROM DEMO.SAMPLE_CONVERSIONS ORDER BY province, lld").collect()
+        st.dataframe(df, use_container_width=True)
+
+
+# =============================================================================
+# Tab 3: AWS Setup
 # =============================================================================
 with tab_aws:
     st.header("AWS Setup")
+    st.info(
+        "This step is **optional**. The app provides validation, parsing, "
+        "standardization, and demo lookups without any AWS setup. Configure "
+        "AWS only if you need live batch conversions of any legal land description."
+    )
     st.write(
-        "Before configuring Snowflake, you need an AWS Lambda function and "
+        "To enable live conversions, you need an AWS Lambda function and "
         "API Gateway that proxy requests to the Township Canada Batch API."
     )
 
@@ -126,7 +227,7 @@ with tab_aws:
         - **Runtime:** Python 3.12
         - **Handler:** `lambda_function.lambda_handler`
         - **Timeout:** 30 seconds
-        - **Environment variable:** `TOWNSHIP_API_KEY` = your API key (trial or paid).
+        - **Environment variable:** `TOWNSHIP_API_KEY` = your API key.
           Get a [trial key](https://townshipcanada.com/api/try?ref=snowflake) or a
           [paid key](https://developer.townshipcanada.com)
         """
@@ -194,10 +295,14 @@ with tab_aws:
 
 
 # =============================================================================
-# Tab 3: Snowflake Setup
+# Tab 4: Snowflake Setup
 # =============================================================================
 with tab_snowflake:
     st.header("Snowflake Setup")
+    st.info(
+        "This step is **optional**. Only needed if you want live batch conversions "
+        "via the TOWNSHIP_CANADA_CONVERT external function."
+    )
     st.write(
         "Enter your AWS details below to generate the SQL script that an "
         "**ACCOUNTADMIN** must run to create the API Integration and External Function."
@@ -281,7 +386,7 @@ with tab_snowflake:
 
 
 # =============================================================================
-# Tab 4: Test
+# Tab 5: Test
 # =============================================================================
 with tab_test:
     st.header("Test Your Setup")
@@ -314,7 +419,8 @@ with tab_test:
 
     st.subheader("Test External Function")
     st.write(
-        "After completing the setup, test the TOWNSHIP_CANADA_CONVERT external function. "
+        "After completing the optional AWS and Snowflake setup, test the "
+        "TOWNSHIP_CANADA_CONVERT external function. "
         "This calls the Township Canada API through your AWS proxy."
     )
 
@@ -336,7 +442,8 @@ with tab_test:
         except Exception as e:
             st.error(
                 "The external function is not available. "
-                "Please complete the setup steps first."
+                "Please complete the AWS and Snowflake setup steps first, "
+                "or use the Demo Lookup on the Try Now tab."
             )
             with st.expander("Error details"):
                 st.code(str(e))
@@ -358,7 +465,7 @@ with tab_test:
 
 
 # =============================================================================
-# Tab 5: Reference
+# Tab 6: Reference
 # =============================================================================
 with tab_reference:
     st.header("Reference")
@@ -369,9 +476,18 @@ with tab_reference:
 
     st.divider()
 
-    st.subheader("Sample Queries")
+    st.subheader("Sample Queries — Works Immediately")
     queries = session.sql("SELECT * FROM REFERENCE.SAMPLE_QUERIES").collect()
     for row in queries:
+        with st.expander(f"{row['NAME']} — {row['DESCRIPTION']}"):
+            st.code(row["SQL_QUERY"], language="sql")
+
+    st.divider()
+
+    st.subheader("API Queries — Requires External Function Setup")
+    st.caption("These queries require the TOWNSHIP_CANADA_CONVERT external function to be configured.")
+    api_queries = session.sql("SELECT * FROM REFERENCE.API_SAMPLE_QUERIES").collect()
+    for row in api_queries:
         with st.expander(f"{row['NAME']} — {row['DESCRIPTION']}"):
             st.code(row["SQL_QUERY"], language="sql")
 
@@ -384,6 +500,7 @@ with tab_reference:
     st.divider()
 
     st.subheader("Setup Guide")
+    st.caption("Configuration steps for the optional external API integration.")
     guide = session.sql(
         "SELECT * FROM REFERENCE.SETUP_GUIDE ORDER BY STEP_NUMBER"
     ).collect()

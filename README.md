@@ -1,41 +1,72 @@
 # Township Canada — Snowflake Native App
 
-Snowflake Native App that helps customers set up the `TOWNSHIP_CANADA_CONVERT` external function for converting Canadian legal land descriptions (DLS/NTS) to GPS coordinates via the Township Canada Batch API.
+Snowflake Native App for working with Canadian legal land descriptions (DLS/NTS). Provides built-in validation, parsing, standardization, and sample GPS coordinate lookups — plus an optional external API integration for live batch conversions.
 
-## What This App Does
+## What You Get Immediately
 
-This app is a **setup wizard and reference bundle**. It does not call the API directly — instead it guides the user through creating the required AWS infrastructure and Snowflake objects.
+After installing the app, these features work right away — no external setup or API key required:
 
-The app provides:
+- **`CORE.VALIDATE_LLD(lld)`** — Check if a string matches a recognized DLS legal land description format
+- **`CORE.PARSE_LLD(lld)`** — Parse a land description into structured components (quarter, section, township, range, meridian)
+- **`CORE.STANDARDIZE_LLD(lld)`** — Normalize any supported format to standard dash-separated format (e.g., `NW-36-42-3-W5`)
+- **`DEMO.LOOKUP(lld)`** — Look up GPS coordinates from 100 pre-computed sample conversions
+- **`DEMO.SAMPLE_CONVERSIONS`** — Browse the full sample dataset of Alberta and Saskatchewan land descriptions with coordinates
+- **Reference views** — Supported formats, sample queries, and setup guides
 
-- An interactive **Streamlit setup wizard** for step-by-step configuration
-- **SQL generators** that produce the ACCOUNTADMIN scripts needed to create the API Integration and External Function
-- **Lambda code** for the AWS proxy function
-- **IAM policy generators** for AWS role configuration
-- A **VALIDATE_LLD** function for checking legal land description formats locally
-- **Reference views** with sample queries, supported formats, and pricing
+### Sample Queries (Work Immediately)
 
-## Prerequisites
+```sql
+-- Validate a legal land description
+SELECT CORE.VALIDATE_LLD('NW-36-42-3-W5');
+-- Returns: TRUE
 
-- **Snowflake account** with ACCOUNTADMIN access (required to create API Integrations and External Functions)
+-- Parse into components
+SELECT CORE.PARSE_LLD('NW-36-42-3-W5');
+-- Returns: {"quarter":"NW","section":36,"township":42,"range":3,"meridian":"W5","standardized":"NW-36-42-3-W5"}
+
+-- Standardize different formats
+SELECT CORE.STANDARDIZE_LLD('NE 7 102 19 W4');
+-- Returns: NE-7-102-19-W4
+
+-- Look up coordinates from sample dataset
+SELECT DEMO.LOOKUP('NW-36-42-3-W5');
+-- Returns: {"latitude":52.3206,"longitude":-114.3356,"province":"AB","description":"Near Eckville, Alberta","source":"demo_dataset"}
+
+-- Browse all sample data
+SELECT * FROM DEMO.SAMPLE_CONVERSIONS;
+
+-- Validate your own data
+SELECT lld_column,
+       CORE.VALIDATE_LLD(lld_column) AS is_valid,
+       CORE.STANDARDIZE_LLD(lld_column) AS standardized,
+       CORE.PARSE_LLD(lld_column) AS parsed
+FROM your_table;
+```
+
+## Optional: Live API Conversion
+
+For live batch conversions of any legal land description (not just the sample dataset), you can configure the `TOWNSHIP_CANADA_CONVERT` external function. This connects to the Township Canada API through AWS.
+
+### Prerequisites for Live API
+
 - **AWS account** with permissions to create API Gateway endpoints, Lambda functions, and IAM roles
 - **Township Canada API key** — get a [trial key](https://townshipcanada.com/api/try?ref=snowflake) or a [paid key](https://developer.townshipcanada.com)
 
-## Architecture
+### Architecture
 
 ```mermaid
 graph LR
-    subgraph Snowflake
+    subgraph Snowflake ["Snowflake (works immediately)"]
+        VL[VALIDATE_LLD / PARSE_LLD<br/>STANDARDIZE_LLD]
+        DM[DEMO.LOOKUP<br/>Sample Dataset]
+    end
+
+    subgraph Optional ["Optional — Live API"]
         EF[TOWNSHIP_CANADA_CONVERT<br/>External Function]
-        AI[API Integration<br/>Trust Policy]
-    end
-
-    subgraph AWS
         AG[API Gateway<br/>+ Lambda Proxy]
-        IAM[IAM Role<br/>Trust Policy]
     end
 
-    subgraph Township Canada
+    subgraph TC [Township Canada]
         API[Batch API<br/>/batch/legal-location]
     end
 
@@ -43,7 +74,60 @@ graph LR
     AG -->|POST| API
     API -->|GeoJSON| AG
     AG -->|coordinates| EF
-    AI -->|assume role| IAM
+```
+
+### Step 1: Deploy Lambda Function
+
+Create an AWS Lambda function (Python 3.12, 30-second timeout) with the `TOWNSHIP_API_KEY` environment variable set to your API key. Get the Lambda code from the app:
+
+```sql
+CALL CONFIG.GET_LAMBDA_CODE();
+```
+
+### Step 2: Create API Gateway
+
+1. Create a **REST API** in API Gateway
+2. Add a **POST** method at the root resource (`/`)
+3. Set integration type to **Lambda Function**
+4. Enable **IAM authorization**
+5. Deploy to a stage (e.g., `prod`)
+
+### Step 3: Create IAM Role
+
+Create an IAM role with API Gateway execution policy. Generate the policy from the app:
+
+```sql
+CALL CONFIG.GET_IAM_POLICY('<aws_account_id>', '<api_id>');
+```
+
+### Step 4: Generate Snowflake Setup SQL
+
+Run this in the app to generate the ACCOUNTADMIN script:
+
+```sql
+CALL CONFIG.CONFIGURE(
+  'https://<api-id>.execute-api.<region>.amazonaws.com/prod',
+  'arn:aws:iam::<account>:role/<role-name>'
+);
+```
+
+An ACCOUNTADMIN must run the generated script to create the API Integration and External Function.
+
+### Step 5: Configure Trust Policy
+
+After running `DESCRIBE INTEGRATION township_canada_integration`, generate the trust policy:
+
+```sql
+CALL CONFIG.GENERATE_TRUST_POLICY('<API_AWS_IAM_USER_ARN>', '<API_AWS_EXTERNAL_ID>');
+```
+
+Update the IAM role trust policy in the AWS Console with the generated JSON.
+
+### Step 6: Test
+
+```sql
+SELECT TOWNSHIP_CANADA_CONVERT('NW-36-42-3-W5') AS result;
+CALL CORE.HEALTH_CHECK();
 ```
 
 ## Deploy to Snowflake
@@ -78,8 +162,6 @@ python3 scripts/upload.py
 
 ### 3. Register a version
 
-Release channels are enabled by default on new application packages. Use `REGISTER` instead of `ADD`:
-
 ```sql
 ALTER APPLICATION PACKAGE township_canada_pkg
   REGISTER VERSION v1_0
@@ -102,63 +184,18 @@ ALTER APPLICATION PACKAGE township_canada_pkg
 CREATE APPLICATION IF NOT EXISTS township_canada_app
   FROM APPLICATION PACKAGE township_canada_pkg;
 
--- Verify
+-- Verify immediate functionality
 SELECT township_canada_app.core.version();
 SELECT township_canada_app.core.validate_lld('NW-36-42-3-W5');
+SELECT township_canada_app.core.parse_lld('NW-36-42-3-W5');
+SELECT township_canada_app.core.standardize_lld('NE 7 102 19 W4');
+SELECT township_canada_app.demo.lookup('NW-36-42-3-W5');
+SELECT * FROM township_canada_app.demo.sample_conversions;
 ```
 
 ### 5. Open the Streamlit wizard
 
-Navigate to the application in Snowsight. The setup wizard opens automatically.
-
-## Publish to Snowflake Marketplace
-
-### 1. Set distribution to EXTERNAL
-
-This triggers an automated security scan:
-
-```sql
-ALTER APPLICATION PACKAGE township_canada_pkg
-  SET DISTRIBUTION = 'EXTERNAL';
-
--- Check scan status (review_status → APPROVED before proceeding)
-SHOW VERSIONS IN APPLICATION PACKAGE township_canada_pkg;
-```
-
-### 2. Add a README to the stage
-
-Snowflake requires a `readme.md` for Marketplace listings. Upload it to the stage alongside your other files.
-
-### 3. Create a Provider Profile
-
-- Go to **Marketplace > Provider Studio** in the left sidebar
-- Set up your provider profile (company name, logo, contact info)
-
-### 4. Create the Listing
-
-- In Provider Studio, click **Create Listing > Snowflake Marketplace**
-- Product type: **Native App**
-- Attach `TOWNSHIP_CANADA_PKG` as the data product
-- Choose access type: Free, Limited trial, or Paid
-- Fill in: description, subtitle, category, sample queries, business needs
-
-### 5. Submit for Approval
-
-- Click **Submit for Approval** in the listing
-- Snowflake performs a functional review checking:
-  - App works after install (immediate utility)
-  - Not a shell/pass-through app (standalone)
-  - Privileges and references declared in manifest (transparency)
-- You'll get an email when approved or denied
-
-### 6. Publish
-
-Once approved, click **Publish**.
-
-### Things to Watch For
-
-- Your app requires an external API integration (the `township_api_integration` reference) — make sure the setup wizard clearly walks consumers through configuring it, since the app won't be "immediately functional" without it
-- Consider adding a trial with limited free queries so consumers can test before committing
+Navigate to the application in Snowsight. The setup wizard opens automatically with the **Try Now** tab for immediate exploration.
 
 ## Full Guide
 
