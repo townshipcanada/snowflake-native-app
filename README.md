@@ -9,7 +9,7 @@ After installing the app, these features work right away — no external setup o
 - **`CORE.VALIDATE_LLD(lld)`** — Check if a string matches a recognized DLS legal land description format
 - **`CORE.PARSE_LLD(lld)`** — Parse a land description into structured components (quarter, section, township, range, meridian)
 - **`CORE.STANDARDIZE_LLD(lld)`** — Normalize any supported format to standard dash-separated format (e.g., `NW-36-42-3-W5`)
-- **`DEMO.LOOKUP(lld)`** — Look up GPS coordinates from 30 pre-computed sample conversions
+- **`DEMO.LOOKUP(lld)`** — Look up GPS coordinates from 100 pre-computed sample conversions
 - **`DEMO.SAMPLE_CONVERSIONS`** — Browse the full sample dataset of Alberta and Saskatchewan land descriptions with coordinates
 - **Reference views** — Supported formats, sample queries, and setup guides
 

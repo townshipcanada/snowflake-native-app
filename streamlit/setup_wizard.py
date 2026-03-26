@@ -168,7 +168,7 @@ with tab_try:
 
     st.subheader("Demo GPS Lookup")
     st.write(
-        "Look up GPS coordinates from the built-in sample dataset of 30 "
+        "Look up GPS coordinates from the built-in sample dataset of 100 "
         "pre-computed conversions."
     )
 
