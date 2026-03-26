@@ -228,8 +228,7 @@ with tab_aws:
         - **Handler:** `lambda_function.lambda_handler`
         - **Timeout:** 30 seconds
         - **Environment variable:** `TOWNSHIP_API_KEY` = your API key.
-          Get a [trial key](https://townshipcanada.com/api/try?ref=snowflake) or a
-          [paid key](https://developer.townshipcanada.com)
+          For technical details see [townshipcanada.com/api](https://townshipcanada.com/api)
         """
     )
 
