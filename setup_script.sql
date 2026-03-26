@@ -39,6 +39,50 @@ $$;
 
 GRANT USAGE ON FUNCTION CORE.VALIDATE_LLD(VARCHAR) TO APPLICATION ROLE APP_PUBLIC;
 
+-- Standardize legal land description to dash-separated format
+CREATE OR REPLACE FUNCTION CORE.STANDARDIZE_LLD(lld VARCHAR)
+  RETURNS VARCHAR
+  LANGUAGE SQL
+  COMMENT = 'Normalizes a DLS legal land description to standard dash-separated format (e.g., NW-36-42-3-W5). Accepts space, period, dash, or no-separator inputs. Returns NULL if the input does not match a recognized DLS format.'
+AS
+$$
+  CASE
+    WHEN CORE.VALIDATE_LLD(lld) THEN
+      UPPER(
+        REGEXP_REPLACE(
+          REGEXP_REPLACE(TRIM(lld), '[ .]+', '-'),
+          '([A-Za-z])([0-9])', '\\1-\\2'
+        )
+      )
+    ELSE NULL
+  END
+$$;
+
+GRANT USAGE ON FUNCTION CORE.STANDARDIZE_LLD(VARCHAR) TO APPLICATION ROLE APP_PUBLIC;
+
+-- Parse legal land description into structured components
+CREATE OR REPLACE FUNCTION CORE.PARSE_LLD(lld VARCHAR)
+  RETURNS OBJECT
+  LANGUAGE SQL
+  COMMENT = 'Parses a DLS legal land description into its structured components: quarter (or LSD), section, township, range, and meridian. Returns an OBJECT with named fields. Returns NULL if input is not a valid DLS format.'
+AS
+$$
+  CASE
+    WHEN CORE.VALIDATE_LLD(lld) THEN
+      OBJECT_CONSTRUCT(
+        'quarter', REGEXP_SUBSTR(CORE.STANDARDIZE_LLD(lld), '^([A-Z]+|[0-9]{1,2})', 1, 1, 'i', 1),
+        'section', REGEXP_SUBSTR(CORE.STANDARDIZE_LLD(lld), '^[^-]+-([0-9]+)', 1, 1, 'i', 1)::INT,
+        'township', REGEXP_SUBSTR(CORE.STANDARDIZE_LLD(lld), '^[^-]+-[0-9]+-([0-9]+)', 1, 1, 'i', 1)::INT,
+        'range', REGEXP_SUBSTR(CORE.STANDARDIZE_LLD(lld), '^[^-]+-[0-9]+-[0-9]+-([0-9]+)', 1, 1, 'i', 1)::INT,
+        'meridian', REGEXP_SUBSTR(CORE.STANDARDIZE_LLD(lld), '(W[4-6])$', 1, 1, 'i', 1),
+        'standardized', CORE.STANDARDIZE_LLD(lld)
+      )
+    ELSE NULL
+  END
+$$;
+
+GRANT USAGE ON FUNCTION CORE.PARSE_LLD(VARCHAR) TO APPLICATION ROLE APP_PUBLIC;
+
 -- Health check procedure
 CREATE OR REPLACE PROCEDURE CORE.HEALTH_CHECK()
   RETURNS VARCHAR
@@ -354,25 +398,58 @@ FROM (VALUES
 
 GRANT SELECT ON VIEW REFERENCE.SETUP_GUIDE TO APPLICATION ROLE APP_PUBLIC;
 
--- Sample queries
+-- Sample queries — only includes queries that work immediately after install
 CREATE OR REPLACE VIEW REFERENCE.SAMPLE_QUERIES
-  COMMENT = 'Ready-to-run SQL examples demonstrating common use cases for the Township Canada External Function.'
+  COMMENT = 'Ready-to-run SQL examples that work immediately after installing the app. No external API configuration required.'
+AS
+SELECT column1 AS name,
+       column2 AS description,
+       column3 AS sql_query
+FROM (VALUES
+  ('Validate a Land Description',
+   'Check if a legal land description matches a recognized DLS format.',
+   'SELECT CORE.VALIDATE_LLD(''NW-36-42-3-W5'') AS is_valid;'),
+
+  ('Parse Land Description',
+   'Break down a legal land description into its structured components (quarter, section, township, range, meridian).',
+   'SELECT CORE.PARSE_LLD(''NW-36-42-3-W5'') AS parsed;'),
+
+  ('Standardize Format',
+   'Normalize a legal land description from any supported format to standard dash-separated format.',
+   'SELECT CORE.STANDARDIZE_LLD(''NE 7 102 19 W4'') AS standardized;'),
+
+  ('Demo Lookup',
+   'Look up GPS coordinates from the built-in sample dataset of 30 pre-computed conversions.',
+   'SELECT DEMO.LOOKUP(''NW-36-42-3-W5'') AS coordinates;'),
+
+  ('Browse Sample Data',
+   'Explore the full sample dataset of pre-computed legal land description conversions.',
+   'SELECT * FROM DEMO.SAMPLE_CONVERSIONS;'),
+
+  ('Validate Your Data',
+   'Check which of your legal land descriptions are valid DLS format before conversion.',
+   'SELECT lld_column, CORE.VALIDATE_LLD(lld_column) AS is_valid, CORE.STANDARDIZE_LLD(lld_column) AS standardized FROM your_table;'),
+
+  ('Parse and Analyze',
+   'Parse your land descriptions and extract individual components for analysis.',
+   'SELECT lld_column, CORE.PARSE_LLD(lld_column):township::INT AS township, CORE.PARSE_LLD(lld_column):range::INT AS range_num, CORE.PARSE_LLD(lld_column):meridian::VARCHAR AS meridian FROM your_table WHERE CORE.VALIDATE_LLD(lld_column);')
+);
+
+-- API-dependent sample queries — require external function setup
+CREATE OR REPLACE VIEW REFERENCE.API_SAMPLE_QUERIES
+  COMMENT = 'SQL examples that require the TOWNSHIP_CANADA_CONVERT external function to be configured. See the Setup Wizard or REFERENCE.SETUP_GUIDE for configuration instructions.'
 AS
 SELECT column1 AS name,
        column2 AS description,
        column3 AS sql_query
 FROM (VALUES
   ('Single Conversion',
-   'Convert a single legal land description to GPS coordinates.',
+   'Convert a single legal land description to GPS coordinates via the API.',
    'SELECT TOWNSHIP_CANADA_CONVERT(''NW-36-42-3-W5'') AS result;'),
 
   ('Batch Conversion',
    'Convert multiple legal land descriptions from a table column.',
    'SELECT lld_column, TOWNSHIP_CANADA_CONVERT(lld_column) AS coordinates FROM your_table;'),
-
-  ('Validate Before Convert',
-   'Validate legal land descriptions before calling the API to avoid errors.',
-   'SELECT lld_column, CORE.VALIDATE_LLD(lld_column) AS is_valid FROM your_table;'),
 
   ('Filter Valid Records',
    'Convert only valid legal land descriptions from a table.',
@@ -390,6 +467,8 @@ FROM (VALUES
    'Verify the external function is properly configured and working.',
    'CALL CORE.HEALTH_CHECK();')
 );
+
+GRANT SELECT ON VIEW REFERENCE.API_SAMPLE_QUERIES TO APPLICATION ROLE APP_PUBLIC;
 
 GRANT SELECT ON VIEW REFERENCE.SAMPLE_QUERIES TO APPLICATION ROLE APP_PUBLIC;
 
@@ -448,3 +527,76 @@ FROM (VALUES
 );
 
 GRANT SELECT ON VIEW REFERENCE.PRICING TO APPLICATION ROLE APP_PUBLIC;
+
+-- -----------------------------------------------------------------------------
+-- Schema: DEMO — Built-in sample data for immediate utility
+-- Provides pre-computed conversions so consumers can explore the app
+-- without configuring external API access.
+-- -----------------------------------------------------------------------------
+CREATE SCHEMA IF NOT EXISTS DEMO;
+GRANT USAGE ON SCHEMA DEMO TO APPLICATION ROLE APP_PUBLIC;
+
+-- Sample dataset of pre-computed legal land description conversions
+CREATE OR REPLACE VIEW DEMO.SAMPLE_CONVERSIONS
+  COMMENT = 'Pre-computed GPS coordinate conversions for common Alberta and Saskatchewan legal land descriptions. Use this data to explore the output format, test your workflows, and evaluate the app before configuring the external API.'
+AS
+SELECT column1 AS lld,
+       column2 AS latitude,
+       column3 AS longitude,
+       column4 AS province,
+       column5 AS description
+FROM (VALUES
+  ('NW-36-42-3-W5', 52.3206, -114.3356, 'AB', 'Near Eckville, Alberta'),
+  ('NE-1-25-1-W5',  51.2047, -114.0719, 'AB', 'Near Calgary, Alberta'),
+  ('SE-15-24-1-W5', 51.1749, -114.0522, 'AB', 'Central Calgary area'),
+  ('SW-36-23-1-W5', 51.1457, -114.0110, 'AB', 'Southeast Calgary area'),
+  ('NW-1-51-25-W4', 53.5461, -113.4938, 'AB', 'Near Edmonton, Alberta'),
+  ('NE-12-50-25-W4', 53.5016, -113.4390, 'AB', 'East Edmonton area'),
+  ('SE-30-62-17-W4', 54.6074, -112.3892, 'AB', 'Near Athabasca, Alberta'),
+  ('NW-5-72-25-W4',  55.4780, -113.4700, 'AB', 'Near Slave Lake, Alberta'),
+  ('SE-22-9-4-W4',  49.8144, -110.4667, 'AB', 'Near Medicine Hat, Alberta'),
+  ('NE-3-10-20-W4', 49.8364, -112.6800, 'AB', 'Near Lethbridge, Alberta'),
+  ('SW-8-36-21-W4', 51.7278, -112.8100, 'AB', 'Near Red Deer, Alberta'),
+  ('NW-26-39-27-W4', 52.0361, -113.5983, 'AB', 'Near Ponoka, Alberta'),
+  ('SE-10-48-26-W4', 53.3261, -113.5400, 'AB', 'Near Leduc, Alberta'),
+  ('NE-7-102-19-W4', 58.2217, -112.5600, 'AB', 'Near Fort McMurray, Alberta'),
+  ('SW-14-23-4-W5', 51.1000, -114.4900, 'AB', 'Near Cochrane, Alberta'),
+  ('NW-1-18-16-W4', 50.7822, -111.9300, 'SK', 'Near Maple Creek, Saskatchewan'),
+  ('NE-36-17-27-W4', 50.7222, -113.5400, 'AB', 'Near Okotoks, Alberta'),
+  ('SE-1-36-7-W5',  51.7278, -114.8900, 'AB', 'Near Rocky Mountain House, Alberta'),
+  ('NW-16-45-3-W5', 53.1100, -114.3600, 'AB', 'Near Drayton Valley, Alberta'),
+  ('NE-22-55-20-W4', 53.9200, -112.5600, 'AB', 'Near Westlock, Alberta'),
+  ('SW-33-28-20-W4', 51.5400, -112.7000, 'AB', 'Near Drumheller, Alberta'),
+  ('SE-9-16-2-W5',  50.5933, -114.2200, 'AB', 'Near High River, Alberta'),
+  ('NW-20-83-18-W4', 56.4300, -112.1700, 'AB', 'Near Fort McMurray region'),
+  ('NE-5-33-3-W5',  51.4800, -114.3200, 'AB', 'Near Sundre, Alberta'),
+  ('SW-11-60-6-W4', 54.4200, -110.7600, 'AB', 'Near Bonnyville, Alberta'),
+  ('NW-22-36-4-W4', 51.7278, -110.3900, 'SK', 'Near Swift Current, Saskatchewan'),
+  ('NE-15-17-19-W4', 50.6200, -112.5200, 'AB', 'Near Vulcan, Alberta'),
+  ('SE-3-29-23-W4', 51.5600, -113.2100, 'AB', 'Near Three Hills, Alberta'),
+  ('NW-8-42-1-W5',  52.2800, -114.0600, 'AB', 'Near Sylvan Lake, Alberta'),
+  ('NE-14-47-26-W4', 53.2400, -113.5200, 'AB', 'Near Beaumont, Alberta')
+);
+
+GRANT SELECT ON VIEW DEMO.SAMPLE_CONVERSIONS TO APPLICATION ROLE APP_PUBLIC;
+
+-- Look up a legal land description from the built-in sample dataset
+CREATE OR REPLACE FUNCTION DEMO.LOOKUP(lld VARCHAR)
+  RETURNS OBJECT
+  LANGUAGE SQL
+  COMMENT = 'Looks up a legal land description in the built-in sample dataset and returns pre-computed GPS coordinates. Works immediately without any external API configuration. Returns NULL if the description is not in the sample dataset.'
+AS
+$$
+  (SELECT OBJECT_CONSTRUCT(
+      'latitude', d.latitude,
+      'longitude', d.longitude,
+      'province', d.province,
+      'description', d.description,
+      'source', 'demo_dataset'
+    )
+   FROM DEMO.SAMPLE_CONVERSIONS d
+   WHERE d.lld = CORE.STANDARDIZE_LLD(lld)
+   LIMIT 1)
+$$;
+
+GRANT USAGE ON FUNCTION DEMO.LOOKUP(VARCHAR) TO APPLICATION ROLE APP_PUBLIC;

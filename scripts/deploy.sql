@@ -61,9 +61,13 @@ ALTER APPLICATION PACKAGE township_canada_pkg
 CREATE APPLICATION IF NOT EXISTS township_canada_app
   FROM APPLICATION PACKAGE township_canada_pkg;
 
--- 8. Verify
+-- 8. Verify immediate functionality (all work without external API setup)
 SELECT township_canada_app.core.version();
 SELECT township_canada_app.core.validate_lld('NW-36-42-3-W5');
+SELECT township_canada_app.core.parse_lld('NW-36-42-3-W5');
+SELECT township_canada_app.core.standardize_lld('NE 7 102 19 W4');
+SELECT township_canada_app.demo.lookup('NW-36-42-3-W5');
+SELECT * FROM township_canada_app.demo.sample_conversions LIMIT 5;
 
 -- =============================================================================
 -- Publish to Marketplace
