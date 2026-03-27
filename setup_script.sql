@@ -509,22 +509,6 @@ FROM (VALUES
 
 GRANT SELECT ON VIEW REFERENCE.SUPPORTED_FORMATS TO APPLICATION ROLE APP_PUBLIC;
 
--- Pricing information
-CREATE OR REPLACE VIEW REFERENCE.PRICING
-  COMMENT = 'Township Canada API pricing tiers and conversion limits.'
-AS
-SELECT column1 AS tier,
-       column2 AS monthly_rows,
-       column3 AS price,
-       column4 AS description
-FROM (VALUES
-  ('Build', '1,000', '$40/month', 'Up to 1,000 row conversions per month. Ideal for evaluation and small projects.'),
-  ('Scale', '10,000', '$200/month', 'Up to 10,000 row conversions per month. Recommended for regular Snowflake workloads.'),
-  ('Enterprise', '100,000', '$1,000/month', 'Up to 100,000 row conversions per month with priority support and SLA guarantees.'),
-  ('Custom', 'Unlimited', 'Contact sales', 'Unlimited conversions with dedicated support and custom integrations. Contact sales@townshipcanada.com.')
-);
-
-GRANT SELECT ON VIEW REFERENCE.PRICING TO APPLICATION ROLE APP_PUBLIC;
 
 -- -----------------------------------------------------------------------------
 -- Schema: DEMO — Built-in sample data for immediate utility

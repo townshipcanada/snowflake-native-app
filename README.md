@@ -47,10 +47,7 @@ FROM your_table;
 
 For live batch conversions of any legal land description (not just the sample dataset), you can configure the `TOWNSHIP_CANADA_CONVERT` external function. This connects to the Township Canada API through AWS.
 
-### Prerequisites for Live API
-
-- **AWS account** with permissions to create API Gateway endpoints, Lambda functions, and IAM roles
-- **Township Canada API key** — for technical details see [townshipcanada.com/api](https://townshipcanada.com/api)
+To use this feature you need an **AWS account** with permissions to create API Gateway endpoints, Lambda functions, and IAM roles, and a **Township Canada API key** — visit [townshipcanada.com/api](https://townshipcanada.com/api) for details.
 
 ### Architecture
 
@@ -129,75 +126,3 @@ Update the IAM role trust policy in the AWS Console with the generated JSON.
 SELECT TOWNSHIP_CANADA_CONVERT('NW-36-42-3-W5') AS result;
 CALL CORE.HEALTH_CHECK();
 ```
-
-## Deploy to Snowflake
-
-### 1. Create the Application Package and Stage
-
-```sql
-CREATE APPLICATION PACKAGE IF NOT EXISTS township_canada_pkg
-  COMMENT = 'Township Canada — Legal Land Description to GPS Conversion';
-
-USE APPLICATION PACKAGE township_canada_pkg;
-CREATE SCHEMA IF NOT EXISTS stage_content;
-CREATE OR REPLACE STAGE township_canada_pkg.stage_content.app_stage
-  DIRECTORY = (ENABLE = TRUE);
-```
-
-### 2. Upload files to the stage
-
-Upload using SnowSQL, snowflake-cli, or the Snowsight UI:
-
-```sql
-PUT file://manifest.yml @township_canada_pkg.stage_content.app_stage/ AUTO_COMPRESS=FALSE OVERWRITE=TRUE;
-PUT file://setup_script.sql @township_canada_pkg.stage_content.app_stage/ AUTO_COMPRESS=FALSE OVERWRITE=TRUE;
-PUT file://streamlit/setup_wizard.py @township_canada_pkg.stage_content.app_stage/streamlit/ AUTO_COMPRESS=FALSE OVERWRITE=TRUE;
-```
-
-Or use the Python upload script:
-
-```bash
-python3 scripts/upload.py
-```
-
-### 3. Register a version
-
-```sql
-ALTER APPLICATION PACKAGE township_canada_pkg
-  REGISTER VERSION v1_0
-  USING '@township_canada_pkg.stage_content.app_stage';
-
-ALTER APPLICATION PACKAGE township_canada_pkg
-  MODIFY RELEASE CHANNEL DEFAULT
-  ADD VERSION v1_0;
-
-ALTER APPLICATION PACKAGE township_canada_pkg
-  MODIFY RELEASE CHANNEL DEFAULT
-  SET DEFAULT RELEASE DIRECTIVE
-  VERSION = v1_0
-  PATCH = 0;
-```
-
-### 4. Create an application for testing
-
-```sql
-CREATE APPLICATION IF NOT EXISTS township_canada_app
-  FROM APPLICATION PACKAGE township_canada_pkg;
-
--- Verify immediate functionality
-SELECT township_canada_app.core.version();
-SELECT township_canada_app.core.validate_lld('NW-36-42-3-W5');
-SELECT township_canada_app.core.parse_lld('NW-36-42-3-W5');
-SELECT township_canada_app.core.standardize_lld('NE 7 102 19 W4');
-SELECT township_canada_app.demo.lookup('NW-36-42-3-W5');
-SELECT * FROM township_canada_app.demo.sample_conversions;
-```
-
-### 5. Open the Streamlit wizard
-
-Navigate to the application in Snowsight. The setup wizard opens automatically with the **Try Now** tab for immediate exploration.
-
-## Full Guide
-
-See the complete integration guide at:
-https://townshipcanada.com/guides/snowflake-external-function

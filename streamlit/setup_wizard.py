@@ -39,7 +39,7 @@ with tab_welcome:
         - **Validate** legal land descriptions against recognized DLS formats
         - **Parse** land descriptions into structured components (quarter, section, township, range, meridian)
         - **Standardize** any supported input format to standard dash-separated format
-        - **Look up** GPS coordinates from 30 pre-computed sample conversions
+        - **Look up** GPS coordinates from 100 pre-computed sample conversions
         - **Browse** reference data for supported formats and sample queries
         """
     )
@@ -227,8 +227,7 @@ with tab_aws:
         - **Runtime:** Python 3.12
         - **Handler:** `lambda_function.lambda_handler`
         - **Timeout:** 30 seconds
-        - **Environment variable:** `TOWNSHIP_API_KEY` = your API key.
-          For technical details see [townshipcanada.com/api](https://townshipcanada.com/api)
+        - **Environment variable:** `TOWNSHIP_API_KEY` = your API key from [townshipcanada.com/api](https://townshipcanada.com/api)
         """
     )
 
@@ -489,12 +488,6 @@ with tab_reference:
     for row in api_queries:
         with st.expander(f"{row['NAME']} — {row['DESCRIPTION']}"):
             st.code(row["SQL_QUERY"], language="sql")
-
-    st.divider()
-
-    st.subheader("Pricing")
-    pricing_df = session.sql("SELECT * FROM REFERENCE.PRICING").collect()
-    st.dataframe(pricing_df, use_container_width=True)
 
     st.divider()
 
