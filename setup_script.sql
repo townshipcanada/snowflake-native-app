@@ -31,10 +31,11 @@ GRANT USAGE ON FUNCTION CORE.VERSION() TO APPLICATION ROLE APP_PUBLIC;
 CREATE OR REPLACE FUNCTION CORE.VALIDATE_LLD(lld VARCHAR)
   RETURNS BOOLEAN
   LANGUAGE SQL
-  COMMENT = 'Validates whether a string matches a recognized DLS legal land description format. Does NOT validate NTS format — NTS descriptions are accepted by the API but will return FALSE from this function. Supports separators: dash, space, period, or no separator between DLS components.'
+  COMMENT = 'Validates whether a string matches a recognized DLS or NTS legal land description format. DLS supports separators: dash, space, period, or no separator between components. NTS supports map sheet references (e.g., 083E/01).'
 AS
 $$
   RLIKE(lld, '^((NW|NE|SW|SE|N|S|E|W)|[0-9]{1,2})[ .\\-]?[0-9]{1,2}[ .\\-]?[0-9]{1,3}[ .\\-]?[0-9]{1,2}[ .\\-]?W[ .\\-]?[4-6]$', 'i')
+  OR RLIKE(lld, '^[0-9]{3}[A-Za-z](/[0-9]{2})?$')
 $$;
 
 GRANT USAGE ON FUNCTION CORE.VALIDATE_LLD(VARCHAR) TO APPLICATION ROLE APP_PUBLIC;
@@ -50,8 +51,11 @@ $$
     WHEN CORE.VALIDATE_LLD(lld) THEN
       UPPER(
         REGEXP_REPLACE(
-          REGEXP_REPLACE(TRIM(lld), '[ .]+', '-'),
-          '([A-Za-z])([0-9])', '\\1-\\2'
+          REGEXP_REPLACE(
+            REGEXP_REPLACE(TRIM(lld), '[ .]+', '-'),
+            '^([A-Za-z]+)([0-9])', '\\1-\\2'
+          ),
+          'W-([4-6])$', 'W\\1'
         )
       )
     ELSE NULL
@@ -504,7 +508,7 @@ FROM (VALUES
 
   ('NTS — National Topographic System',
    '083E/01',
-   'NTS map sheet reference for areas covered by the National Topographic System.')
+   'NTS map sheet reference. VALIDATE_LLD accepts this format. PARSE_LLD and STANDARDIZE_LLD support DLS only — NTS descriptions pass through to the conversion API as-is.')
 );
 
 GRANT SELECT ON VIEW REFERENCE.SUPPORTED_FORMATS TO APPLICATION ROLE APP_PUBLIC;
@@ -636,7 +640,10 @@ FROM (VALUES
   ('SW-25-49-1-W4',  52.8200, -110.0100, 'AB', 'Near Lloydminster, Alberta'),
   ('NW-14-50-27-W3', 52.9000, -109.4700, 'SK', 'Near Lloydminster, Saskatchewan'),
   ('SE-6-33-1-W4',   51.4600, -110.0500, 'AB', 'Near Provost, Alberta'),
-  ('NE-20-44-4-W4',  52.9400, -110.4000, 'AB', 'Near Wainwright, Alberta')
+  ('NE-20-44-4-W4',  52.9400, -110.4000, 'AB', 'Near Wainwright, Alberta'),
+  -- Additional Saskatchewan entries
+  ('NE-8-37-6-W3',   51.7600, -106.6800, 'SK', 'Near Outlook, Saskatchewan'),
+  ('SW-19-52-23-W2', 53.2000, -104.8400, 'SK', 'Near Melfort, Saskatchewan')
 );
 
 GRANT SELECT ON VIEW DEMO.SAMPLE_CONVERSIONS TO APPLICATION ROLE APP_PUBLIC;
