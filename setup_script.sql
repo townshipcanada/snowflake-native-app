@@ -360,6 +360,9 @@ GRANT USAGE ON PROCEDURE CONFIG.GENERATE_TRUST_POLICY(VARCHAR, VARCHAR) TO APPLI
 CREATE SCHEMA IF NOT EXISTS REFERENCE;
 GRANT USAGE ON SCHEMA REFERENCE TO APPLICATION ROLE APP_PUBLIC;
 
+-- Drop legacy views from previous versions
+DROP VIEW IF EXISTS REFERENCE.PRICING;
+
 -- Setup guide as queryable rows
 CREATE OR REPLACE VIEW REFERENCE.SETUP_GUIDE
   COMMENT = 'Step-by-step setup instructions for configuring the Township Canada External Function in Snowflake.'

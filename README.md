@@ -2,9 +2,9 @@
 
 Snowflake Native App for working with Canadian legal land descriptions (DLS/NTS). Provides built-in validation, parsing, standardization, and sample GPS coordinate lookups — plus an optional external API integration for live batch conversions.
 
-## What You Get Immediately
+## What's Included (Free)
 
-After installing the app, these features work right away — no external setup or API key required:
+The following features are included with the application at no cost and work immediately after install — no external setup or API key required:
 
 - **`CORE.VALIDATE_LLD(lld)`** — Check if a string matches a recognized DLS legal land description format
 - **`CORE.PARSE_LLD(lld)`** — Parse a land description into structured components (quarter, section, township, range, meridian)
@@ -43,11 +43,11 @@ SELECT lld_column,
 FROM your_table;
 ```
 
-## Optional: Live API Conversion
+## Full Version: Live Batch Conversion
 
 For live batch conversions of any legal land description (not just the sample dataset), you can configure the `TOWNSHIP_CANADA_CONVERT` external function. This connects to the Township Canada API through AWS.
 
-To use this feature you need an **AWS account** with permissions to create API Gateway endpoints, Lambda functions, and IAM roles, and a **Township Canada API key** — visit [townshipcanada.com/api](https://townshipcanada.com/api) for details.
+To access the full batch conversion functionality, please contact **Township Canada** to obtain an API key. You will also need an **AWS account** with permissions to create API Gateway endpoints, Lambda functions, and IAM roles.
 
 ### Architecture
 
